@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import yfinance as yf
 from fredapi import Fred
 import pandas as pd
+import numpy as np
+from scipy.stats import norm
 
 fred = Fred(api_key='5079f41d061a4037d81f3da69e018803')
 
@@ -85,30 +87,33 @@ class Option:
         sig: float
         r: float
 
-    def d1(self):
-        return (np.log(self.S/self.K)+(self.r+(self.sig**2)/2)*self.T)/(self.sig*np.sqrt(self.T))
+        def d1(self):
+            return (np.log(self.S/self.K)+(self.r+(self.sig**2)/2)*self.T)/(self.sig*np.sqrt(self.T))
 
-    def d2(self):
-        return self.d1() - self.sig*np.sqrt(self.T)
+        def d2(self):
+            return self.d1() - self.sig*np.sqrt(self.T)
+        
+        def price(self):
+            return self.S*norm.cdf(self.d1()) - self.K*np.exp(-self.r*self.T)*norm.cdf(self.d2())
 
-    #Constant greek across options:
-    def gamma(self):
-      return norm.pdf(self.d1())/(self.S*self.sig*np.sqrt(self.T))
+        def gamma(self):
+            return norm.pdf(self.d1())/(self.S*self.sig*np.sqrt(self.T))
     
-    def vega(self):
-      return self.S*np.sqrt(self.T)*norm.pdf(self.d1())
+        def vega(self):
+            return self.S*np.sqrt(self.T)*norm.pdf(self.d1())
+
+        def delta(self):
+            return norm.cdf(self.d1())
+
+        def theta(self):
+            return -self.S*self.sig*norm.pdf(self.d1())/(2*np.sqrt(self.T)) - self.r*self.K*np.exp(-self.r*self.T)*norm.cdf(self.d2())
+
+        def rho(self):
+            return (self.K*self.T*np.exp(-self.r*self.T)*norm.cdf(self.d2()))
+
+
+
+    
     
 
-class Call(Option):
     
-    def price(self):
-      return self.S*norm.cdf(self.d1()) - self.K*np.exp(-self.r*self.T)*norm.cdf(self.d2())
-
-    def delta(self):
-      return norm.cdf(self.d1())
-
-    def theta(self):
-      return -self.S*self.sig*norm.pdf(self.d1())/(2*np.sqrt(self.T)) - self.r*self.K*np.exp(-self.r*self.T)*norm.cdf(self.d2())
-
-    def rho(self):
-      return (self.K*self.T*np.exp(-self.r*self.T)*norm.cdf(self.d2()))
